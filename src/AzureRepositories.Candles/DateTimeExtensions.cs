@@ -32,43 +32,22 @@ namespace AzureRepositories.Candles
             }
         }
 
-        public static int GetIntervalCell(this DateTime dateTime, TimeInterval interval)
-        {
-            switch (interval)
-            {
-                case TimeInterval.Month: return 0;
-                case TimeInterval.Week: return 0;
-                case TimeInterval.Day: return dateTime.Month - 1;
-                case TimeInterval.Hour12:
-                case TimeInterval.Hour6:
-                case TimeInterval.Hour4:
-                case TimeInterval.Hour: return dateTime.Day - 1;
-                case TimeInterval.Min30: return dateTime.Hour;
-                case TimeInterval.Min15: return dateTime.Hour;
-                case TimeInterval.Min5: return dateTime.Hour;
-                case TimeInterval.Minute: return dateTime.Hour;
-                case TimeInterval.Sec: return dateTime.Minute;
-                default:
-                    throw new ArgumentOutOfRangeException(nameof(interval), interval, "Unexpected TimeInterval value.");
-            }
-        }
-
-        public static DateTime AddIntervalTicks(this DateTime baseTime, int cell, int ticks, TimeInterval interval)
+        public static DateTime AddIntervalTicks(this DateTime baseTime, int ticks, TimeInterval interval)
         {
             switch (interval)
             {
                 case TimeInterval.Month: return baseTime.AddMonths(ticks - 1);  // Month ticks are in range [1..12]
                 case TimeInterval.Week: return baseTime.AddDays(ticks * 7);
-                case TimeInterval.Day: return baseTime.AddMonths(cell).AddDays(ticks - 1);      // Days ticks are in range [1..31]
-                case TimeInterval.Hour12: return baseTime.AddDays(cell).AddHours(ticks * 12);
-                case TimeInterval.Hour6: return baseTime.AddDays(cell).AddHours(ticks * 6);
-                case TimeInterval.Hour4: return baseTime.AddDays(cell).AddHours(ticks * 4);
-                case TimeInterval.Hour: return baseTime.AddDays(cell).AddHours(ticks);
-                case TimeInterval.Min30: return baseTime.AddHours(cell).AddMinutes(ticks * 30);
-                case TimeInterval.Min15: return baseTime.AddHours(cell).AddMinutes(ticks * 15);
-                case TimeInterval.Min5: return baseTime.AddHours(cell).AddMinutes(ticks * 5);
-                case TimeInterval.Minute: return baseTime.AddHours(cell).AddMinutes(ticks);
-                case TimeInterval.Sec: return baseTime.AddMinutes(cell).AddSeconds(ticks);
+                case TimeInterval.Day: return baseTime.AddDays(ticks - 1);      // Days ticks are in range [1..31]
+                case TimeInterval.Hour12: return baseTime.AddHours(ticks * 12);
+                case TimeInterval.Hour6: return baseTime.AddHours(ticks * 6);
+                case TimeInterval.Hour4: return baseTime.AddHours(ticks * 4);
+                case TimeInterval.Hour: return baseTime.AddHours(ticks);
+                case TimeInterval.Min30: return baseTime.AddMinutes(ticks * 30);
+                case TimeInterval.Min15: return baseTime.AddMinutes(ticks * 15);
+                case TimeInterval.Min5: return baseTime.AddMinutes(ticks * 5);
+                case TimeInterval.Minute: return baseTime.AddMinutes(ticks);
+                case TimeInterval.Sec: return baseTime.AddSeconds(ticks);
                 default:
                     throw new ArgumentOutOfRangeException(nameof(interval), interval, "Unexpected TimeInterval value.");
             }

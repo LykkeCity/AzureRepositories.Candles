@@ -21,7 +21,7 @@ namespace AzureRepositories.Candles
                     High = candle.High,
                     Low = candle.Low,
                     IsBuy = isBuy,
-                    DateTime = baseTime.AddIntervalTicks(candle.Cell, candle.Tick, interval)
+                    DateTime = baseTime.AddIntervalTicks(candle.Tick, interval)
                 };
             }
             return null;
@@ -38,18 +38,17 @@ namespace AzureRepositories.Candles
                 Close = candle.Close,
                 High = candle.High,
                 Low = candle.Low,
-                Tick = candle.DateTime.GetIntervalTick(interval),
-                Cell = candle.DateTime.GetIntervalCell(interval)
+                Tick = candle.DateTime.GetIntervalTick(interval)
             };
         }
 
-        public static string PartitionKey(this IFeedCandle candle, string asset)
+        public static string PartitionKey(this IFeedCandle candle, PriceType priceType)
         {
             if (candle == null)
             {
                 throw new ArgumentNullException(nameof(candle));
             }
-            return CandleTableEntity.GeneratePartitionKey(asset);
+            return CandleTableEntity.GeneratePartitionKey(priceType);
         }
 
         public static string RowKey(this IFeedCandle candle, TimeInterval interval)
@@ -58,7 +57,7 @@ namespace AzureRepositories.Candles
             {
                 throw new ArgumentNullException(nameof(candle));
             }
-            return CandleTableEntity.GenerateRowKey(candle.DateTime, candle.IsBuy, interval);
+            return CandleTableEntity.GenerateRowKey(candle.DateTime, interval);
         }
     }
 
@@ -90,15 +89,15 @@ namespace AzureRepositories.Candles
             // 1. Check if candle with specified time already exist
             // 2. If found - merge, else - add to list
             //
-            var cell = candle.DateTime.GetIntervalCell(interval);
+            //var cell = candle.DateTime.GetIntervalCell(interval);
             var tick = candle.DateTime.GetIntervalTick(interval);
-            var existingCandle = entity.Candles.FirstOrDefault(ci => ci.Tick == tick && ci.Cell == cell);
+            var existingCandle = entity.Candles.FirstOrDefault(ci => ci.Tick == tick);
 
             if (existingCandle != null)
             {
                 // Merge in list
                 var mergedCandle = existingCandle
-                    .ToCandle(entity.IsBuy, entity.DateTime, interval)
+                    .ToCandle(entity.PriceType == PriceType.Bid, entity.DateTime, interval)
                     .MergeWith(candle);
 
                 entity.Candles.Remove(existingCandle);
@@ -118,7 +117,7 @@ namespace AzureRepositories.Candles
                 throw new ArgumentNullException(nameof(entity));
             }
 
-            IFeedCandle fc = candle.ToCandle(entity.IsBuy, entity.DateTime, interval);
+            IFeedCandle fc = candle.ToCandle(entity.PriceType == PriceType.Bid, entity.DateTime, interval);
             entity.MergeCandle(fc, interval);
         }
     }

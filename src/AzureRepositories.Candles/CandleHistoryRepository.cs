@@ -15,7 +15,7 @@ namespace AzureRepositories.Candles
     /// <summary>
     /// Implementation of ICandleHistoryRepository for Azure
     /// </summary>
-    public sealed class CandleHistoryRepository : ICandleHistoryRepository
+    public sealed class CandleHistoryRepository
     {
         private readonly INoSQLTableStorage<CandleTableEntity> _tableStorage;
 
@@ -24,175 +24,96 @@ namespace AzureRepositories.Candles
             _tableStorage = tableStorage;
         }
 
-        public async Task InsertOrMergeAsync(IFeedCandle candle, string asset, TimeInterval interval)
+        public async Task InsertOrMergeAsync(IFeedCandle candle, PriceType priceType, TimeInterval interval)
         {
-            if (candle == null) { throw new ArgumentNullException(nameof(candle)); }
-            if (string.IsNullOrEmpty(asset)) { throw new ArgumentNullException(nameof(asset)); }
+            // Get candle table entity
+            string partitionKey = CandleTableEntity.GeneratePartitionKey(priceType);
+            string rowKey = CandleTableEntity.GenerateRowKey(candle.DateTime, interval);
 
-            await InsertOrMergeAsync(new Dictionary<TimeInterval, IEnumerable<IFeedCandle>>()
+            CandleTableEntity entity = await _tableStorage.GetDataAsync(partitionKey, rowKey);
+
+            if (entity == null)
             {
-                { interval, new IFeedCandle[] { candle } }
-            }, asset);
-        }
-
-        public async Task InsertOrMergeAsync(IEnumerable<IFeedCandle> candles, string asset, TimeInterval interval)
-        {
-            if (candles == null) { throw new ArgumentNullException(nameof(candles)); }
-            if (string.IsNullOrEmpty(asset)) { throw new ArgumentNullException(nameof(asset)); }
-            if (!candles.Any()) { return; }
-
-            await InsertOrMergeAsync(new Dictionary<TimeInterval, IEnumerable<IFeedCandle>>()
-            {
-                { interval, candles }
-            }, asset);
-        }
-
-        public async Task InsertOrMergeAsync(IReadOnlyDictionary<TimeInterval, IEnumerable<IFeedCandle>> dict, string asset)
-        {
-            if (dict == null) { throw new ArgumentNullException(nameof(dict)); }
-            if (string.IsNullOrEmpty(asset)) { throw new ArgumentNullException(nameof(asset)); }
-            if (!dict.Any() && dict.Values.All(e => e != null) && dict.Values.Any(e => e.Count() > 0)) { return; }
-
-            var partitionKey = CandleTableEntity.GeneratePartitionKey(asset);
-            var rowKeys = new List<string>();
-            var fields = new HashSet<string>(); // which fields to read from table
-
-            // 1. Read all { pkey, rowkey } rows
-            //
-            var updateEntities = new List<CandleTableEntity>();
-
-            foreach (var interval in dict.Keys)
-            {
-                var candles = dict[interval];
-                if (candles != null && candles.Any())
-                {
-                    // Inside one interval group all candles by distinct row
-                    var groups = candles.GroupBy(candle => candle.RowKey(interval));
-
-                    rowKeys.AddRange(groups.Select(g => g.Key));
-
-                    foreach (var group in groups)
-                    {
-                        // Create entity with candles and add it to list
-                        var e = new CandleTableEntity(partitionKey, group.Key);  // group.Key = rowKey
-                        e.MergeCandles(group, interval);
-                        updateEntities.Add(e);
-
-                        // update field
-                        var dates = group.Select(c => c.DateTime);
-                        fields.UnionWith(CandleTableEntity.GetStoreFields(interval, dates.Min(), dates.Max()));
-                    }
-                }
+                entity = new CandleTableEntity(partitionKey, rowKey);
             }
 
-            // ... prepare get query
-            // ... partitionKey = ? AND (rokey = ? OR rowkey = ? OR rowkey = ? OR ...)
-            TableQuery<CandleTableEntity> query = new TableQuery<CandleTableEntity>();
-            string pkeyFilter = TableQuery.GenerateFilterCondition("PartitionKey", QueryComparisons.Equal, partitionKey);
+            // Merge candle
+            entity.MergeCandle(candle, interval);
 
-            var rowkeyFilters = rowKeys.Select(rowKey => TableQuery.GenerateFilterCondition("RowKey", QueryComparisons.Equal, rowKey));
-            var rowkeyFilter = rowkeyFilters.Aggregate((cond1, cond2) => TableQuery.CombineFilters(cond1, TableOperators.Or, cond2));
-            query.FilterString = TableQuery.CombineFilters(pkeyFilter, TableOperators.And, rowkeyFilter);
-            query.SelectColumns = fields.ToList();
+            // Update
+            await _tableStorage.InsertOrMergeAsync(entity);
+        }
 
-            // ... reading rows from azure table
-            List<CandleTableEntity> origEntities = new List<CandleTableEntity>(1);
-            await _tableStorage.ScanDataAsync(query, list =>
-            {
-                origEntities.AddRange(list);
-                return Task.FromResult(0);
-            });
+        public async Task InsertOrMergeAsync(IEnumerable<IFeedCandle> candles, PriceType priceType, TimeInterval interval)
+        {
+            // Group by row
+            var groups = candles
+                .GroupBy(candle => new { pKey = candle.PartitionKey(priceType), rowKey = candle.RowKey(interval) });
 
-            // 2. Update rows (merge entities)
-            //
-            var listToUpdate = new List<CandleTableEntity>();
-            foreach (var updateEntity in updateEntities)
+            // Update rows
+            foreach (var group in groups)
             {
-                var origEntity = origEntities.Where(e => e.PartitionKey == updateEntity.PartitionKey && e.RowKey == updateEntity.RowKey).FirstOrDefault();
-                if (origEntity != null)
-                {
-                    origEntity.MergeCandles(updateEntity.Candles, updateEntity.Interval);
-                    listToUpdate.Add(origEntity);
-                }
-                else
-                {
-                    listToUpdate.Add(updateEntity);
-                }
-            }
-            
-            // 3. Write rows in batch
-            // ... Only 100 records with the same pKey can be updated in one batch operation
-            foreach (var collection in listToUpdate.ToPieces(100))
-            {
-                await _tableStorage.InsertOrMergeBatchAsync(collection);
+                await InsertOrMergeAsync(group, group.Key.pKey, group.Key.rowKey, interval);
             }
         }
 
-        public async Task<IFeedCandle> GetCandleAsync(string asset, TimeInterval interval, bool isBuy, DateTime dateTime)
+        private async Task InsertOrMergeAsync(IEnumerable<IFeedCandle> candles, string partitionKey, string rowKey, TimeInterval interval)
         {
-            if (string.IsNullOrEmpty(asset)) { throw new ArgumentNullException(nameof(asset)); }
+            // Read row
+            CandleTableEntity entity = await _tableStorage.GetDataAsync(partitionKey, rowKey);
+            if (entity == null)
+            {
+                entity = new CandleTableEntity(partitionKey, rowKey);
+            }
+
+            // Merge all candles
+            entity.MergeCandles(candles, interval);
+
+            // Update
+            await _tableStorage.InsertOrMergeAsync(entity);
+        }
+
+        public async Task<IFeedCandle> GetCandleAsync(PriceType priceType, TimeInterval interval, DateTime dateTime)
+        {
+            if (priceType == PriceType.Unspecified) { throw new ArgumentException(nameof(priceType)); }
 
             // 1. Get candle table entity
-            string partitionKey = CandleTableEntity.GeneratePartitionKey(asset);
-            string rowKey = CandleTableEntity.GenerateRowKey(dateTime, isBuy, interval);
+            string partitionKey = CandleTableEntity.GeneratePartitionKey(priceType);
+            string rowKey = CandleTableEntity.GenerateRowKey(dateTime, interval);
 
-            //CandleTableEntity entity = await _tableStorage.GetDataAsync(partitionKey, rowKey);
-
-            //---------------
-            TableQuery<CandleTableEntity> query = new TableQuery<CandleTableEntity>();
-            string pkeyFilter = TableQuery.GenerateFilterCondition("PartitionKey", QueryComparisons.Equal, partitionKey);
-            string rowkeyFilter = TableQuery.GenerateFilterCondition("RowKey", QueryComparisons.Equal, rowKey);
-            query.FilterString = TableQuery.CombineFilters(pkeyFilter, TableOperators.And, rowkeyFilter);
-            query.SelectColumns = CandleTableEntity.GetStoreFields(interval, dateTime);
-
-            List<CandleTableEntity> entities = new List<CandleTableEntity>(1);
-            await _tableStorage.ScanDataAsync(query, list =>
-            {
-                entities.AddRange(list);
-                return Task.FromResult(0);
-            });
-            //-----------
+            CandleTableEntity entity = await _tableStorage.GetDataAsync(partitionKey, rowKey);
 
             // 2. Find required candle in candle list by tick
-            if (entities.Count > 0)
+            if (entity != null)
             {
-                var cell = dateTime.GetIntervalCell(interval);
                 var tick = dateTime.GetIntervalTick(interval);
-                var candleItem = entities[0].Candles.FirstOrDefault(ci => ci.Tick == tick && ci.Cell == cell);
-                return candleItem.ToCandle(isBuy, entities[0].DateTime, interval);
+                var candleItem = entity.Candles.FirstOrDefault(ci => ci.Tick == tick);
+                return candleItem.ToCandle(priceType == PriceType.Bid, entity.DateTime, interval);
             }
             return null;
         }
 
-        public async Task<IEnumerable<IFeedCandle>> GetCandlesAsync(string asset, TimeInterval interval, bool isBuy, DateTime from, DateTime to)
+        public async Task<IEnumerable<IFeedCandle>> GetCandlesAsync(PriceType priceType, TimeInterval interval, DateTime from, DateTime to)
         {
-            if (string.IsNullOrEmpty(asset)) { throw new ArgumentNullException(nameof(asset)); }
+            if (priceType == PriceType.Unspecified) { throw new ArgumentException(nameof(priceType)); }
 
-            string partitionKey = CandleTableEntity.GeneratePartitionKey(asset);
-            string rowKeyFrom = CandleTableEntity.GenerateRowKey(from, isBuy, interval);
-            string rowKeyTo = CandleTableEntity.GenerateRowKey(to, isBuy, interval);
+            string partitionKey = CandleTableEntity.GeneratePartitionKey(priceType);
+            string rowKeyFrom = CandleTableEntity.GenerateRowKey(from, interval);
+            string rowKeyTo = CandleTableEntity.GenerateRowKey(to, interval);
 
-            //IEnumerable<CandleTableEntity> candleEntities = await _tableStorage.WhereAsync(partitionKey, from, to, ToIntervalOption.ExcludeTo, null, includeTime: true);
-
-            //---------------
             TableQuery<CandleTableEntity> query = new TableQuery<CandleTableEntity>();
             string pkeyFilter = TableQuery.GenerateFilterCondition("PartitionKey", QueryComparisons.Equal, partitionKey);
-            string fromFilter = TableQuery.GenerateFilterCondition("RowKey", QueryComparisons.GreaterThanOrEqual, rowKeyFrom);
-            string toFilter = TableQuery.GenerateFilterCondition("RowKey", QueryComparisons.LessThanOrEqual, rowKeyTo);
 
-            query.FilterString = TableQuery.CombineFilters(pkeyFilter, TableOperators.And,
-                TableQuery.CombineFilters(fromFilter, TableOperators.And, toFilter));
+            var rowkeyCondFrom = TableQuery.GenerateFilterCondition("RowKey", QueryComparisons.GreaterThanOrEqual, rowKeyFrom);
+            var rowkeyCondTo = TableQuery.GenerateFilterCondition("RowKey", QueryComparisons.LessThanOrEqual, rowKeyTo);
+            var rowkeyFilter = TableQuery.CombineFilters(rowkeyCondFrom, TableOperators.And, rowkeyCondTo);
 
-            List<CandleTableEntity> entities = new List<CandleTableEntity>(1);
-            await _tableStorage.ScanDataAsync(query, list =>
-            {
-                entities.AddRange(list);
-                return Task.FromResult(0);
-            });
-            //-----------
+            query.FilterString = TableQuery.CombineFilters(pkeyFilter, TableOperators.And, rowkeyFilter);
+
+            IEnumerable<CandleTableEntity> entities = await _tableStorage.WhereAsync(query);
 
             var result = from e in entities
-                         select e.Candles.Select(ci => ci.ToCandle(e.IsBuy, e.DateTime, interval));
+                         select e.Candles.Select(ci => ci.ToCandle(e.PriceType == PriceType.Bid, e.DateTime, interval));
 
             return result
                 .SelectMany(c => c)

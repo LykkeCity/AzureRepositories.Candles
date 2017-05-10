@@ -22,8 +22,5 @@ namespace AzureRepositories.Candles
 
         [JsonProperty("T")]
         public int Tick { get; set; }
-
-        [JsonIgnore]
-        public int Cell { get; set; }
     }
 }

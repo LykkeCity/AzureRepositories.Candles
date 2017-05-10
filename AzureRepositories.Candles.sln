@@ -1,26 +1,27 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 15
-VisualStudioVersion = 15.0.26228.9
+# Visual Studio 14
+VisualStudioVersion = 14.0.25420.1
 MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BB2217D-0F2D-49D1-97BC-3654ED321F3B}") = "AzureRepositories.Candles", "src\AzureRepositories.Candles\AzureRepositories.Candles.xproj", "{BC0C120B-30E2-4F30-9E20-73162E950A24}"
+EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{BB8712D8-CAD4-4DE3-AB08-8E04D237D734}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "test", "test", "{D8EB8CC2-F71F-4DD0-8EE2-91120AD06628}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "unit", "unit", "{627BC122-8B23-4507-83E3-67FA63E5A3A8}"
 EndProject
+Project("{8BB2217D-0F2D-49D1-97BC-3654ED321F3B}") = "AzureRepositories.Candles.Tests", "test\unit\AzureRepositories.Candles.Tests\AzureRepositories.Candles.Tests.xproj", "{6B8F005B-8290-40D8-9B5C-EE76FF115619}"
+EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "integration", "integration", "{A7511088-9669-45E1-9A59-905EAA758697}"
+EndProject
+Project("{8BB2217D-0F2D-49D1-97BC-3654ED321F3B}") = "AzureRepositories.Candles.IntTests", "test\integration\AzureRepositories.Candles.IntTests\AzureRepositories.Candles.IntTests.xproj", "{9530A7A1-890E-4AC0-ACED-9905DF55A889}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{64B3EE80-8D8B-461F-A8A2-1DC0BDC69D49}"
 	ProjectSection(SolutionItems) = preProject
-		WebEssentials2015-Settings.json = WebEssentials2015-Settings.json
+		.gitignore = .gitignore
+		global.json = global.json
 	EndProjectSection
-EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AzureRepositories.Candles", "src\AzureRepositories.Candles\AzureRepositories.Candles.csproj", "{BC0C120B-30E2-4F30-9E20-73162E950A24}"
-EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AzureRepositories.Candles.Tests", "test\unit\AzureRepositories.Candles.Tests\AzureRepositories.Candles.Tests.csproj", "{6B8F005B-8290-40D8-9B5C-EE76FF115619}"
-EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AzureRepositories.Candles.IntTests", "test\integration\AzureRepositories.Candles.IntTests\AzureRepositories.Candles.IntTests.csproj", "{9530A7A1-890E-4AC0-ACED-9905DF55A889}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -45,10 +46,10 @@ Global
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
-		{627BC122-8B23-4507-83E3-67FA63E5A3A8} = {D8EB8CC2-F71F-4DD0-8EE2-91120AD06628}
-		{A7511088-9669-45E1-9A59-905EAA758697} = {D8EB8CC2-F71F-4DD0-8EE2-91120AD06628}
 		{BC0C120B-30E2-4F30-9E20-73162E950A24} = {BB8712D8-CAD4-4DE3-AB08-8E04D237D734}
+		{627BC122-8B23-4507-83E3-67FA63E5A3A8} = {D8EB8CC2-F71F-4DD0-8EE2-91120AD06628}
 		{6B8F005B-8290-40D8-9B5C-EE76FF115619} = {627BC122-8B23-4507-83E3-67FA63E5A3A8}
+		{A7511088-9669-45E1-9A59-905EAA758697} = {D8EB8CC2-F71F-4DD0-8EE2-91120AD06628}
 		{9530A7A1-890E-4AC0-ACED-9905DF55A889} = {A7511088-9669-45E1-9A59-905EAA758697}
 	EndGlobalSection
 EndGlobal

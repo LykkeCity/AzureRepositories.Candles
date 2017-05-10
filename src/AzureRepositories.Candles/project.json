@@ -1,0 +1,16 @@
+﻿{
+  "version": "1.0.0-*",
+
+  "dependencies": {
+    "Microsoft.NETCore.App": "1.1.0",
+    "Lykke.AzureStorage": "1.2.7",
+    "Lykke.Common": "1.1.21",
+    "Lykke.Domain.Prices": "0.9.0"
+  },
+
+  "frameworks": {
+    "netcoreapp1.0": {
+      "imports": [ "dnxcore50", "portable-net451+win8" ]
+    }
+  }
+}

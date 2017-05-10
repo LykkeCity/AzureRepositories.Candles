@@ -14,15 +14,15 @@ namespace AzureRepositories.Candles
 
     public sealed class RepoBinder
     {
-        public IRegistrationBuilder RegisterInstance(ContainerBuilder container, string connectionString, ILog log)
+        public IRegistrationBuilder RegisterInstance(ContainerBuilder container, CreateStorage createStorage)
         {
             return container.RegisterInstance(
-                RepoFactory.Instance.CreateCandleHistoryRepository(connectionString, log));
+                RepoFactory.Instance.CreateCandleHistoryRepository(createStorage));
         }
 
-        public IServiceCollection AddSingleton(IServiceCollection services, string connectionString, ILog log)
+        public IServiceCollection AddSingleton(IServiceCollection services, CreateStorage createStorage)
         {
-            return services.AddSingleton(RepoFactory.Instance.CreateCandleHistoryRepository(connectionString, log));
+            return services.AddSingleton(RepoFactory.Instance.CreateCandleHistoryRepository(createStorage));
         }
 
         #region "Singleton implementation"

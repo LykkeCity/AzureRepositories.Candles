@@ -10,9 +10,9 @@ namespace AzureRepositories.Candles
 {
     public class RepoFactory
     {
-        public ICandleHistoryRepository CreateCandleHistoryRepository(string connectionString, ILog log)
+        public ICandleHistoryRepository CreateCandleHistoryRepository(CreateStorage createStorage)
         {
-            return new CandleHistoryRepository(new AzureTableStorage<CandleTableEntity>(connectionString, "CandlesHistory", log));
+            return new CandleHistoryRepositoryResolver(createStorage);
         }
 
         #region "Singleton implementation"
