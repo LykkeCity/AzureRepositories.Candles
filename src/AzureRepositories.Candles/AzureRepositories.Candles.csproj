@@ -12,9 +12,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Lykke.AzureStorage" Version="1.2.7" />
-    <PackageReference Include="Lykke.Common" Version="1.1.21" />
-    <PackageReference Include="Lykke.Domain.Prices" Version="0.8.1" />
+    <PackageReference Include="Lykke.AzureStorage" Version="1.2.22" />
+    <PackageReference Include="Lykke.Common" Version="1.1.69" />
+    <PackageReference Include="Lykke.Domain.Prices" Version="0.9.0" />
   </ItemGroup>
 
 </Project>
