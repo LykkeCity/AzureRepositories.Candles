@@ -21,6 +21,7 @@ namespace AzureRepositories.Candles.Tests
             Assert.Equal(new DateTime(2017, 1, 2, 0, 0, 0, DateTimeKind.Utc), DateTimeUtils.GetFirstWeekOfYear(2017));
         }
 
+        [Fact]
         public void GetFirstWeekOfYear2_BasicChecks()
         {
             Assert.Equal(new DateTime(2016, 1, 4), DateTimeUtils.GetFirstWeekOfYear(new DateTime(2016, 12, 25)));
