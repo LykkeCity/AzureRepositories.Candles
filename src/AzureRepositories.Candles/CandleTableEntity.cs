@@ -37,7 +37,7 @@ namespace AzureRepositories.Candles
                 // extract from RowKey + Interval from PKey
                 if (!string.IsNullOrEmpty(this.RowKey))
                 {
-                    return new DateTime(long.Parse(this.RowKey), DateTimeKind.Utc);
+                    return ParseRowKey(this.RowKey, DateTimeKind.Utc);
                 }
                 return default(DateTime);
             }
@@ -93,25 +93,40 @@ namespace AzureRepositories.Candles
 
         public static string GenerateRowKey(DateTime date, TimeInterval interval)
         {
-            string time = "";
+            DateTime time;
             switch (interval)
             {
-                case TimeInterval.Month: time = new DateTime(date.Year, 1, 1, 0, 0, 0, DateTimeKind.Utc).Ticks.ToString("d19"); break;
-                case TimeInterval.Week: time = DateTimeUtils.GetFirstWeekOfYear(date).Ticks.ToString("d19"); break;
-                case TimeInterval.Day: time = new DateTime(date.Year, date.Month, 1, 0, 0, 0, DateTimeKind.Utc).Ticks.ToString("d19"); break;
+                case TimeInterval.Month: time = new DateTime(date.Year, 1, 1, 0, 0, 0, DateTimeKind.Utc); break;
+                case TimeInterval.Week: time = DateTimeUtils.GetFirstWeekOfYear(date); break;
+                case TimeInterval.Day: time = new DateTime(date.Year, date.Month, 1, 0, 0, 0, DateTimeKind.Utc); break;
                 case TimeInterval.Hour12:
                 case TimeInterval.Hour6:
                 case TimeInterval.Hour4:
-                case TimeInterval.Hour: time = new DateTime(date.Year, date.Month, date.Day, 0, 0, 0, DateTimeKind.Utc).Ticks.ToString("d19"); break;
+                case TimeInterval.Hour: time = new DateTime(date.Year, date.Month, date.Day, 0, 0, 0, DateTimeKind.Utc); break;
                 case TimeInterval.Min30:
                 case TimeInterval.Min15:
                 case TimeInterval.Min5:
-                case TimeInterval.Minute: time = new DateTime(date.Year, date.Month, date.Day, date.Hour, 0, 0, DateTimeKind.Utc).Ticks.ToString("d19"); break;
-                case TimeInterval.Sec: time = new DateTime(date.Year, date.Month, date.Day, date.Hour, date.Minute, 0, DateTimeKind.Utc).Ticks.ToString("d19"); break;
+                case TimeInterval.Minute: time = new DateTime(date.Year, date.Month, date.Day, date.Hour, 0, 0, DateTimeKind.Utc); break;
+                case TimeInterval.Sec: time = new DateTime(date.Year, date.Month, date.Day, date.Hour, date.Minute, 0, DateTimeKind.Utc); break;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(interval), interval, null);
             }
-            return time;
+            return FormatRowKey(time);
+        }
+
+        private static string FormatRowKey(DateTime dateUtc)
+        {
+            return dateUtc.ToString("s"); // sortable format
+        }
+
+        private static DateTime ParseRowKey(string value, DateTimeKind kind)
+        {
+            if (string.IsNullOrEmpty(value))
+            {
+                throw new ArgumentNullException(nameof(value));
+            }
+
+            return DateTime.ParseExact(value, "s", System.Globalization.DateTimeFormatInfo.InvariantInfo);
         }
     }
 }
