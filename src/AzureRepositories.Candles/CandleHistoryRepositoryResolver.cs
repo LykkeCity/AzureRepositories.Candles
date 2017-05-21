@@ -29,7 +29,15 @@ namespace AzureRepositories.Candles
         {
             ValidateAndThrow(asset, interval, priceType);
             var repo = GetRepo(asset, interval);
-            await repo.InsertOrMergeAsync(feedCandle, priceType, interval);
+            try
+            {
+                await repo.InsertOrMergeAsync(feedCandle, priceType, interval);
+            }
+            catch
+            {
+                ResetRepo(asset, interval);
+                throw;
+            }
         }
 
         /// <summary>
@@ -39,7 +47,15 @@ namespace AzureRepositories.Candles
         {
             ValidateAndThrow(asset, interval, priceType);
             var repo = GetRepo(asset, interval);
-            await repo.InsertOrMergeAsync(candles, priceType, interval);
+            try
+            {
+                await repo.InsertOrMergeAsync(candles, priceType, interval);
+            }
+            catch
+            {
+                ResetRepo(asset, interval);
+                throw;
+            }
         }
 
         /// <summary>
@@ -49,7 +65,15 @@ namespace AzureRepositories.Candles
         {
             ValidateAndThrow(asset, interval, priceType);
             var repo = GetRepo(asset, interval);
-            return await repo.GetCandleAsync(priceType, interval, dateTime);
+            try
+            {
+                return await repo.GetCandleAsync(priceType, interval, dateTime);
+            }
+            catch
+            {
+                ResetRepo(asset, interval);
+                throw;
+            }
         }
 
         /// <summary>
@@ -59,7 +83,25 @@ namespace AzureRepositories.Candles
         {
             ValidateAndThrow(asset, interval, priceType);
             var repo = GetRepo(asset, interval);
-            return await repo.GetCandlesAsync(priceType, interval, from, to);
+            try
+            {
+                return await repo.GetCandlesAsync(priceType, interval, from, to);
+            }
+            catch
+            {
+                ResetRepo(asset, interval);
+                throw;
+            }
+        }
+
+        private void ResetRepo(string asset, TimeInterval interval)
+        {
+            string tableName = interval.ToString().ToLowerInvariant();
+            string key = asset.ToLowerInvariant() + "_" + tableName;
+            lock (_sync)
+            {
+                _repoTable[key] = null;
+            }
         }
 
         private CandleHistoryRepository GetRepo(string asset, TimeInterval interval)
@@ -67,14 +109,14 @@ namespace AzureRepositories.Candles
             string tableName = interval.ToString().ToLowerInvariant();
             string key = asset.ToLowerInvariant() + "_" + tableName;
             CandleHistoryRepository repo;
-            if (!_repoTable.TryGetValue(key, out repo))
+            if (!_repoTable.TryGetValue(key, out repo) || repo == null)
             {
                 lock (_sync)
                 {
-                    if (!_repoTable.TryGetValue(key, out repo))
+                    if (!_repoTable.TryGetValue(key, out repo) || repo == null)
                     {
                         repo = new CandleHistoryRepository(_createStorage(asset, tableName));
-                        _repoTable.Add(key, repo);
+                        _repoTable[key] = repo;
                     }
                 }
             }
