@@ -1,6 +1,6 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading.Tasks;
 using AzureStorage;
 using Lykke.Domain.Prices;
@@ -14,7 +14,7 @@ namespace AzureRepositories.Candles
     public class CandleHistoryRepositoryResolver : ICandleHistoryRepository
     {
         private readonly CreateStorage _createStorage;
-        private readonly Dictionary<string, CandleHistoryRepository> _repoTable = new Dictionary<string, CandleHistoryRepository>();
+        private readonly ConcurrentDictionary<string, CandleHistoryRepository> _repoTable = new ConcurrentDictionary<string, CandleHistoryRepository>();
         private readonly object _sync = new object();
 
         public CandleHistoryRepositoryResolver(CreateStorage createStorage)
@@ -96,29 +96,25 @@ namespace AzureRepositories.Candles
 
         private void ResetRepo(string asset, TimeInterval interval)
         {
-            string tableName = interval.ToString().ToLowerInvariant();
-            string key = asset.ToLowerInvariant() + "_" + tableName;
-            lock (_sync)
-            {
-                _repoTable[key] = null;
-            }
+            var tableName = interval.ToString().ToLowerInvariant();
+            var key = asset.ToLowerInvariant() + "_" + tableName;
+            
+            _repoTable[key] = null;
         }
-
+        
         private CandleHistoryRepository GetRepo(string asset, TimeInterval interval)
         {
-            string tableName = interval.ToString().ToLowerInvariant();
-            string key = asset.ToLowerInvariant() + "_" + tableName;
-            CandleHistoryRepository repo;
+            var tableName = interval.ToString().ToLowerInvariant();
+            var key = asset.ToLowerInvariant() + "_" + tableName;
             
-            lock (_sync)
+            if (!_repoTable.TryGetValue(key, out CandleHistoryRepository repo) || repo == null)
             {
-                if (!_repoTable.TryGetValue(key, out repo) || repo == null)
-                {
-                    repo = new CandleHistoryRepository(_createStorage(asset, tableName));
-                    _repoTable[key] = repo;
-                }
+                return _repoTable.AddOrUpdate(
+                    key: key,
+                    addValueFactory: k => new CandleHistoryRepository(_createStorage(asset, tableName)),
+                    updateValueFactory: (k, oldRepo) => oldRepo ?? new CandleHistoryRepository(_createStorage(asset, tableName)));
             }
-            
+          
             return repo;
         }
 
