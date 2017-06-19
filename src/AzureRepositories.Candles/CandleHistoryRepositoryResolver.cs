@@ -109,17 +109,16 @@ namespace AzureRepositories.Candles
             string tableName = interval.ToString().ToLowerInvariant();
             string key = asset.ToLowerInvariant() + "_" + tableName;
             CandleHistoryRepository repo;
-            if (!_repoTable.TryGetValue(key, out repo) || repo == null)
+            
+            lock (_sync)
             {
-                lock (_sync)
+                if (!_repoTable.TryGetValue(key, out repo) || repo == null)
                 {
-                    if (!_repoTable.TryGetValue(key, out repo) || repo == null)
-                    {
-                        repo = new CandleHistoryRepository(_createStorage(asset, tableName));
-                        _repoTable[key] = repo;
-                    }
+                    repo = new CandleHistoryRepository(_createStorage(asset, tableName));
+                    _repoTable[key] = repo;
                 }
             }
+            
             return repo;
         }
 
